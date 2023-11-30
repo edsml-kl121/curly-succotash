@@ -1,0 +1,35 @@
+[tool.poetry]
+name = "dhipaya"
+version = "0.1.0"
+description = "An LLM application to safeguard the consistency of documents in a knowledge base"
+authors = ["Senne Batsleer <senne@dataroots.io>"]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/datarootsio/knowledgebase_guardian/"
+packages = [{include = "tools"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+langchain = "0.0.213"
+faiss-cpu = "1.7.3"
+llama-index = "0.6.26"
+python-dotenv = "1.0.0"
+transformers = "4.30.2"
+bs4 = "0.0.1"
+googletrans = "^3.1.0a0"
+
+[tool.poetry.group.dev.dependencies]
+black = "^23.3.0"
+flake8 = "^6.0.0"
+isort = "^5.10.1"
+pytest = "^7.3.1"
+pytest-mock = "^3.11.1"
+pytest-cov = "^4.1.0"
+pre-commit = "^3.3.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.isort]
+profile = "black"
