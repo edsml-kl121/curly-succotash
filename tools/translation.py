@@ -4,6 +4,10 @@ import requests
 import textwrap
 from dotenv import load_dotenv
 import os
+from transformers import AutoProcessor, SeamlessM4TModel
+import time
+import joblib
+
 
 load_dotenv()
 neural_seek_url = os.getenv("NEURAL_SEEK_URL", None)
@@ -32,10 +36,71 @@ def translate_to_thai(sentence, choice):
         output = json.loads(response.text)['translations'][0]
     except:
         print(data)
-        return sentence
+        if target == "th":
+            output = translate_to_thai_facebook(sentence, True)
+        elif target == "en":
+            output = translate_to_thai_facebook(sentence, False)
+        print("facebook translator: ", output)
         # print(response)
     return output
 
+
+
+
+def cache_model_components(processor_path='cache/processor.joblib', model_path='cache/model.joblib'):
+    """
+    This function checks for the cached processor and model. If they are not found, it loads them from the pretrained source and caches them.
+    Parameters:
+    - processor_path: The path to save or load the processor cache.
+    - model_path: The path to save or load the model cache.
+    
+    Returns:
+    - processor: The loaded or cached processor.
+    - model: The loaded or cached model.
+    - initialization_time: The time taken to initialize or load the components.
+    """
+    start = time.time()
+
+    # Load processor from cache if available, otherwise from pretrained
+    if os.path.exists(processor_path):
+        processor = joblib.load(processor_path)
+    else:
+        processor = AutoProcessor.from_pretrained("facebook/hf-seamless-m4t-large")
+        joblib.dump(processor, processor_path)
+
+    # Load model from cache if available, otherwise from pretrained
+    if os.path.exists(model_path):
+        model = joblib.load(model_path)
+    else:
+        model = SeamlessM4TModel.from_pretrained("facebook/hf-seamless-m4t-large")
+        joblib.dump(model, model_path)
+
+    end = time.time()
+    initialization_time = end - start
+
+    return processor, model, initialization_time
+
+
+
+
+def translate_to_thai_facebook(text, choice=True):
+    # Example usage:
+    processor, model, init_time = cache_model_components(processor_path='cache/processor.joblib', model_path='cache/model.joblib')
+    print("Initializing time: ", init_time)
+    start = time.time()
+    # print("input text: ", text)
+    if choice == True:
+        text_inputs = processor(text=text, src_lang="eng", return_tensors="pt")
+        output_tokens = model.generate(**text_inputs, tgt_lang="tha", generate_speech=False)
+    else:
+        text_inputs = processor(text=text, src_lang="tha", return_tensors="pt")
+        output_tokens = model.generate(**text_inputs, tgt_lang="eng", generate_speech=False) 
+    translated_text_from_text = processor.decode(output_tokens[0].tolist()[0], skip_special_tokens=True)
+    # print("translated_text: ", translated_text_from_text)
+    print("curr text: ", translated_text_from_text)
+    end = time.time()
+    print("time: ", end-start)
+    return translated_text_from_text
 
 def translate_large_text(text, translate_function, choice, max_length=500):
     """

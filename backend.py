@@ -6,7 +6,7 @@ from langchain.embeddings import (HuggingFaceHubEmbeddings,
                                   HuggingFaceInstructEmbeddings,
                                   SentenceTransformerEmbeddings)
 from langchain.vectorstores import FAISS, Chroma, Milvus
-from pymilvus import connections
+from pymilvus import connections, DataType
 import requests
 
 # importing Custom package
@@ -51,37 +51,119 @@ def get_data(file_path='assets/extracted_data'):
     return data_dict
 
 data_dict_terms_meaning = get_data('text_extraction/extracted_data/terms_meaning.csv')
+data_dict_changes_policies = get_data('text_extraction/extracted_data/changes_policies.csv')
 
 data_dict_terms_meaning["text_to_encode"] = [
     f"Term: {term}\nMeaning: {meaning}"
     for term, meaning in zip(data_dict_terms_meaning["Term_en"], data_dict_terms_meaning["Meaning_en"])
 ]
-
+data_dict_changes_policies["text_to_encode"] = [
+    f"Term: {term}\nMeaning: {meaning}"
+    for term, meaning in zip(data_dict_changes_policies["file_name_en"], data_dict_changes_policies["Description_en"])
+]
 print(data_dict_terms_meaning.keys())
 print(data_dict_terms_meaning)
-# embeddings = HuggingFaceHubEmbeddings(repo_id="sentence-transformers/all-MiniLM-L6-v2")
+print(data_dict_changes_policies.keys())
+print(data_dict_changes_policies)
 
-# print(translated_docs)
+# 
 print("initializing milvus")
 # Usage in main application
 if __name__ == "__main__":
     collection_name = "dhipaya_term_names"
-    collection = manage_collection(collection_name)
+    print(collection_name)
+    schema = \
+    {
+        "embeddings": DataType.FLOAT_VECTOR, 
+        "text_to_encode": DataType.VARCHAR, 
+        "Term_th": DataType.VARCHAR, 
+        "Meaning_th": DataType.VARCHAR
+    }
+    collection = manage_collection(collection_name, schema)
     print("initialized new collection")
 
-# new_translated_docs, page_contents, pagesno, sources = read_pdfs(listing_docs(base_folder_path))
 
-# print(page_contents)
-# print(sources)
+    print("ingesting into Milvus - start")
+    model = get_model(model_name="sentence-transformers/all-MiniLM-L6-v2", max_seq_length=384)
+    embeds = [list(embed) for embed in model.encode(data_dict_terms_meaning["text_to_encode"])]
+    collection.insert([embeds, data_dict_terms_meaning["text_to_encode"], data_dict_terms_meaning["Term_th"], data_dict_terms_meaning["Meaning_th"]])
+    collection.create_index(field_name="embeddings",\
+                            index_params={"metric_type":"IP","index_type":"IVF_FLAT","params":{"nlist":16384}})
 
-print("ingesting into Milvus - start")
-model = get_model(model_name="sentence-transformers/all-MiniLM-L6-v2", max_seq_length=384)
-embeds = [list(embed) for embed in model.encode(data_dict_terms_meaning["text_to_encode"])]
-collection.insert([embeds, data_dict_terms_meaning["text_to_encode"], data_dict_terms_meaning["Term_th"], data_dict_terms_meaning["Meaning_th"]])
-collection.create_index(field_name="embeddings",\
-                        index_params={"metric_type":"IP","index_type":"IVF_FLAT","params":{"nlist":16384}})
+    print("ingesting into Milvus - completed")
 
-print("ingesting into Milvus - completed")
+    # # utility.drop_collection(collection_name)
+    # # print("dropped collection")
 
-# # utility.drop_collection(collection_name)
-# # print("dropped collection")
+    collection_name = "dhipaya_changes_policy"
+    print(collection_name)
+    schema = \
+    {
+        "embeddings": DataType.FLOAT_VECTOR, 
+        "text_to_encode": DataType.VARCHAR, 
+        "file_name": DataType.VARCHAR, 
+        "Description": DataType.VARCHAR
+    }
+    collection = manage_collection(collection_name, schema)
+    print("initialized new collection")
+
+
+    print("ingesting into Milvus - start")
+    model = get_model(model_name="sentence-transformers/all-MiniLM-L6-v2", max_seq_length=384)
+    embeds = [list(embed) for embed in model.encode(data_dict_changes_policies["text_to_encode"])]
+    collection.insert([embeds, data_dict_changes_policies["text_to_encode"], data_dict_changes_policies["file_name_th"], data_dict_changes_policies["Description_th"]])
+    collection.create_index(field_name="embeddings",\
+                            index_params={"metric_type":"IP","index_type":"IVF_FLAT","params":{"nlist":16384}})
+
+    print("ingesting into Milvus - completed")
+
+    # # utility.drop_collection(collection_name)
+    # # print("dropped collection")
+
+    collection_name = "dhipaya_changes_policy"
+    print(collection_name)
+    schema = \
+    {
+        "embeddings": DataType.FLOAT_VECTOR, 
+        "text_to_encode": DataType.VARCHAR, 
+        "file_name": DataType.VARCHAR, 
+        "Description": DataType.VARCHAR
+    }
+    collection = manage_collection(collection_name, schema)
+    print("initialized new collection")
+
+
+    print("ingesting into Milvus - start")
+    model = get_model(model_name="sentence-transformers/all-MiniLM-L6-v2", max_seq_length=384)
+    embeds = [list(embed) for embed in model.encode(data_dict_changes_policies["text_to_encode"])]
+    collection.insert([embeds, data_dict_changes_policies["text_to_encode"], data_dict_changes_policies["file_name_th"], data_dict_changes_policies["Description_th"]])
+    collection.create_index(field_name="embeddings",\
+                            index_params={"metric_type":"IP","index_type":"IVF_FLAT","params":{"nlist":16384}})
+
+    print("ingesting into Milvus - completed")
+
+
+    collection_name = "dhipaya_main_doc"
+    print(collection_name)
+    schema = \
+    {
+        "embeddings": DataType.FLOAT_VECTOR, 
+        "text_to_encode": DataType.VARCHAR, 
+        "Section": DataType.VARCHAR, 
+        "Description": DataType.VARCHAR,
+        "chunk": DataType.VARCHAR
+    }
+    collection = manage_collection(collection_name, schema)
+    print("initialized new collection")
+
+
+    print("ingesting into Milvus - start")
+    model = get_model(model_name="sentence-transformers/all-MiniLM-L6-v2", max_seq_length=384)
+    embeds = [list(embed) for embed in model.encode(data_dict_changes_policies["text_to_encode"])]
+    collection.insert([embeds, data_dict_changes_policies["text_to_encode"], data_dict_changes_policies["file_name_th"], data_dict_changes_policies["Description_th"]])
+    collection.create_index(field_name="embeddings",\
+                            index_params={"metric_type":"IP","index_type":"IVF_FLAT","params":{"nlist":16384}})
+
+    print("ingesting into Milvus - completed")
+    # # utility.drop_collection(collection_name)
+    # # print("dropped collection")

@@ -68,15 +68,18 @@ ID_MAX_LENGTH = 50000
 TEXT_MAX_LENGTH = 50000
 EMBEDDINGS_DIMENSION = 384
 
-def create_field_schema():
+def create_field_schema(schema):
     """Create field schemas for the collection."""
-    return [
-        FieldSchema(name="id", dtype=DataType.INT64, is_primary=True, auto_id=True),
-        FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=EMBEDDINGS_DIMENSION),
-        FieldSchema(name="text_to_encode", dtype=DataType.VARCHAR, max_length=TEXT_MAX_LENGTH),
-        FieldSchema(name="Term_th", dtype=DataType.VARCHAR, max_length=TEXT_MAX_LENGTH),
-        FieldSchema(name="Meaning_th", dtype=DataType.VARCHAR, max_length=TEXT_MAX_LENGTH),
-    ]
+    final_schema = [FieldSchema(name="id", dtype=DataType.INT64, is_primary=True, auto_id=True)]
+    for key in schema:
+        if schema[key] == DataType.FLOAT_VECTOR:
+            curr_schema = FieldSchema(name=key, dtype=schema[key], dim=EMBEDDINGS_DIMENSION)
+        elif schema[key] == DataType.VARCHAR:
+            curr_schema = FieldSchema(name=key, dtype=schema[key], max_length=TEXT_MAX_LENGTH)
+        else:
+            pass
+        final_schema.append(curr_schema)
+    return final_schema
 
 def create_collection_schema(fields, description="Search promotional events"):
     """Create a collection schema with the provided fields."""
@@ -86,13 +89,13 @@ def initialize_collection(collection_name, schema, using='default'):
     """Initialize a collection with the given name and schema."""
     return Collection(name=collection_name, schema=schema, using=using)
 
-def manage_collection(collection_name):
+def manage_collection(collection_name, schema):
     """Manage the creation or replacement of a collection."""
     if collection_name in utility.list_collections():
         utility.drop_collection(collection_name)
         print("Dropped old collection")
 
-    fields = create_field_schema()
+    fields = create_field_schema(schema)
     schema = create_collection_schema(fields)
     collection = initialize_collection(collection_name, schema)
     print("Initialized new collection")

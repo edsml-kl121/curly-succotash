@@ -29,9 +29,12 @@ import datetime
 from PIL import Image
 from sentence_transformers import SentenceTransformer, models
 from langChainInterface import LangChainInterface
+from ibm_watson_machine_learning.foundation_models import Model
+from ibm_watson_machine_learning.metanames import GenTextParamsMetaNames as GenParams
+from ibm_watson_machine_learning.metanames import GenTextReturnOptMetaNames as ReturnOptions
 # from tools.backend_helper import read_pdfs, listing_docs
-from tools.frontend_helper import initialize_db_client, get_db_results, \
-    open_pdf, get_model
+from tools.frontend_helper import initialize_db_client, get_db_results_main, get_db_results_terms, get_db_results_changes, open_pdf, get_model
+import streamlit.components.v1 as components
 
 load_dotenv()
 api_key = os.getenv("API_KEY", None)
@@ -70,8 +73,31 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
-st.image("assets/images/")
-st.header("Rag 💬")
+# st.image("assets/images/scb-promo-hdr.png")
+
+# # BANNERS GO HERE >>>>>>>
+# imageCarouselComponent = components.declare_component("image-carousel-component", path="frontend/public")
+
+# imageUrls = [
+#     "https://images.unsplash.com/photo-1624704765325-fd4868c9702e?ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&ixlib=rb-1.2.1&auto=format&fit=crop&w=764&q=80",
+#     "https://www.scb.co.th/content/dam/scb/personal-banking/loans/car-loans/promotion/images/2566/honda-car-loan/nov/honda-detail.jpg",
+#     "https://www.scb.co.th/content/dam/scb/personal-banking/loans/home-loans/promotions/images/2566/home-builder/nov/home-builder-detail.jpg",
+#     "https://www.scb.co.th/content/dam/scb/personal-banking/cards/debit-cards/promotions/images/2566/debit-inter-spend/nov/debit-inter-spend-detail.jpg",
+#     "https://www.scb.co.th/content/dam/scb/personal-banking/cards/debit-cards/promotions/images/2566/lets-acquisition/oct/lets-acquisition-detail.jpg",
+#     "https://www.scb.co.th/content/dam/scb/personal-banking/cards/debit-cards/promotions/images/2566/foodpanda/lets-foodpanda-day/oct/foodpanda-detail.jpg",
+#     "https://www.scb.co.th/content/dam/scb/personal-banking/cards/debit-cards/promotions/images/2566/debit-king-power/oct/king-power-detail.jpg",
+#     "https://www.scb.co.th/content/dam/scb/personal-banking/cards/debit-cards/promotions/images/2566/lets-sf-popcorn/sf-popcorn-detail2.jpg",
+#     "https://www.scb.co.th/content/dam/scb/personal-banking/loans/car-loans/promotion/images/2566/motor-expo/motor-expo-detail.jpg",
+#     "https://www.scb.co.th/content/dam/scb/personal-banking/loans/home-loans/promotions/images/2566/scg/scg-detail.jpg",
+#     "https://www.scb.co.th/content/dam/scb/personal-banking/loans/personal-loans/promotions/images/2566/scbm/speedy-cash/scbm-speedy-cash/aug/scbm-speedy-cash-detail.jpg",
+#     "",
+
+# ]
+# selectedImageUrl = imageCarouselComponent(imageUrls=imageUrls, height=200)
+
+
+
+st.header("Ask about Dhipaya's HR Policy 💬")
 # chunk_size=1500
 # chunk_overlap = 200
 
@@ -85,66 +111,121 @@ else:
         "apikey": api_key
     }
 
-def format_text(i):
+def format_text_main(i):
     # Chunk 1
-    translated_documents = translate_to_thai(docs[i].page_content, True)
-    currentdoc = docs[i]
-    full_text = f"""Content:
+    translated_documents = docs_main[i].chunk
+    currentdoc = docs_main[i]
+    full_text = f"""
+    Section: {currentdoc.Section} \n
+    Description: {currentdoc.Description} \n
+    Content: \n
     {translated_documents}
+    """
+    return full_text
 
-Source: {currentdoc.sources}, Page {currentdoc.pagesno + 1}
+def format_text_terms(i):
+    # Chunk 1
+    meaning = docs_terms[i].Meaning_th
+    terms = docs_terms[i].Term_th
+    full_text = f"""
+    Merms: {terms} \n
+    Meaning: {meaning} \n
+    """
+    return full_text
+
+
+def format_text_changes(i):
+    # Chunk 1
+    file_name = docs_changes[i].file_name
+    Description = docs_changes[i].Description
+    full_text = f"""
+    Merms: {file_name} \n
+    Meaning: {Description} \n
     """
     return full_text
 
 
 # show user input
 if user_question := st.text_input(
-    "ถามคำถามเกี่ยวกับโปรโมชั่นของคุณ:"
+    "ask away:"
 ):
-    logging.info(user_question)
-    model_response_placeholder = st.empty()
-    # Placeholder for dynamic text and spinner
-    with st.spinner('Initialization...'):
+    with st.spinner('Initializing...'):
+        logging.info(user_question)
+        model_response_placeholder = st.empty()
+        thai_spinner = st.empty()
+        model_response_placeholder_thai = st.empty()
+        # Placeholder for dynamic text and spinner
+
         # model_response_placeholder.text_area(label="Model Response", value="generating...", height=300)
         translated_user_input = translate_large_text(user_question,
                                                     translate_to_thai, False)
-        model = get_model(model_name="sentence-transformers/all-MiniLM-L6-v2", 
+        model = get_model(model_name="sentence-transformers/all-MiniLM-L6-v2",
                         max_seq_length=384)
-
-    with st.spinner('Retrieving relevent chunk...'):
-        docs = get_db_results(translated_user_input, model,
-                            collection_name="dhipaya_hr_policy",
+    
+        docs_main = get_db_results_main(translated_user_input, model,
+                            collection_name="dhipaya_main_doc",
+                            n_results=4)
+        docs_terms = get_db_results_terms(translated_user_input, model,
+                            collection_name="dhipaya_term_names",
+                            n_results=4)
+        docs_changes = get_db_results_changes(translated_user_input, model,
+                            collection_name="dhipaya_changes_policy",
                             n_results=4)
 
-    with st.spinner('Model generating response...'):
+        
+    with st.spinner('Initializing llm model and formulating prompt ...'):
+        st.markdown("#### Main Documents")
         for i in range(4):
             chunk_label = f"ข้อมูลเกี่ยวข้องในเอกสารอันดับ {i + 1}"
             source_button_label = f"View source {i + 1}"
 
             # Display the text area for the chunk
-            st.text_area(label=chunk_label, value=format_text(i), height=100)
+            st.text_area(label=chunk_label, value=format_text_main(i), height=300)
 
-            # Create a button to view the source; if clicked, open the PDF
-            if st.button(source_button_label):
-                open_pdf(docs[i].sources, docs[i].pagesno)
+            # # Create a button to view the source; if clicked, open the PDF
+            # if st.button(source_button_label):
+            #     open_pdf(docs[i].sources, docs[i].pagesno)
 
-        print('docs' + "*" * 5)
-        print(docs)
+        st.markdown("#### Relevent Terms")
+        for i in range(4):
+            chunk_label = f"คำและความหมายที่เกี่ยวข้อง {i + 1}"
+            source_button_label = f"View source {i + 1}"
+
+            # Display the text area for the chunk
+            st.text_area(label=chunk_label, value=format_text_terms(i), height=100)
+
+        st.markdown("#### Changes in Documents")
+        for i in range(4):
+            chunk_label = f"เอกสารเกี่ยวข้องที่มีการเปลี่ยนแปลง {i + 1}"
+            source_button_label = f"View source {i + 1}"
+
+            # Display the text area for the chunk
+            st.text_area(label=chunk_label, value=format_text_changes(i), height=300)
+
+
+        print('docs_main' + "*" * 5)
+        print(docs_main)
         print("*" * 5)
 
-        params = {
-            GenParams.DECODING_METHOD: "greedy",
-            GenParams.MIN_NEW_TOKENS: 10,
+        print('docs_terms' + "*" * 5)
+        print(docs_terms)
+        print("*" * 5)
+
+        print('docs_changes' + "*" * 5)
+        print(docs_changes)
+        print("*" * 5)
+
+    
+        model_params = {
+            GenParams.DECODING_METHOD: 'greedy',
+            GenParams.MIN_NEW_TOKENS: 1,
             GenParams.MAX_NEW_TOKENS: 300,
-            GenParams.TEMPERATURE: 0.0,
-            GenParams.STOP_SEQUENCES: ['END_KEY'],
-            # GenParams.TOP_K: 100,
-            # GenParams.TOP_P: 1,
-            GenParams.REPETITION_PENALTY: 1
+            # GenParams.RANDOM_SEED: 42,
+            # GenParams.TEMPERATURE: 0.7,
+            GenParams.REPETITION_PENALTY: 1,
+            GenParams.RETURN_OPTIONS: {ReturnOptions.GENERATED_TOKENS: True, ReturnOptions.GENERATED_TOKENS:True, ReturnOptions.INPUT_TOKENS: True}
         }
-        model_llm = LangChainInterface(model=ModelTypes.LLAMA_2_70B_CHAT.value,
-                                    credentials=creds, params=params,
-                                    project_id=project_id)
+        model_llm = Model(ModelTypes.LLAMA_2_70B_CHAT.value, params=model_params, credentials=creds, project_id=project_id)
 
         knowledge_based_template = (
             open("assets/llama2-prompt-template-rag.txt",
@@ -152,39 +233,69 @@ if user_question := st.text_input(
             )
         )
         custom_prompt = PromptTemplate(template=knowledge_based_template,
-                                    input_variables=["context", "question"])
+                                    input_variables=["context", "terms", "changes", "question"])
         chunks_combined = ""
-        for i in range(len(docs)):
-            chunks_combined += f"chunk {i} \n" + docs[i].new_translated_docs + "\n"
+        for i in range(len(docs_main)):
+            chunks_combined += f"chunk {i} \n" + docs_main[i].text_to_encode + "\n"
 
-        # logging.info("start translate chunk combined")
-        # translated_chunks_combined = translate_large_text(chunks_combined,
-        #                                                   translate_to_thai, False)
-        # logging.info("end translate chunk combined")
+        terms_combined = ""
+        for i in range(len(docs_terms)):
+            terms_combined += f"Term {i} \n" + docs_terms[i].text_to_encode + "\n"
+
+        changes_combined = ""
+        for i in range(len(docs_terms)):
+            changes_combined += f"Changes {i} \n" + docs_changes[i].text_to_encode + "\n"
 
         formated_prompt = custom_prompt.format(question=translated_user_input,
-                                            context=chunks_combined)
+                                               context=chunks_combined,
+                                               terms=terms_combined,
+                                               changes=changes_combined)
         logging.info(formated_prompt)
 
         logging.info("start generate")
-        response = model_llm(custom_prompt.format(question=translated_user_input,
-                                                context=formated_prompt))
-        logging.info("end generate")
 
-        start = time.time()
-        response = model_llm(custom_prompt.format(question=translated_user_input, context=formated_prompt))
-        end = time.time()
-        
-        logging.info("model generation: ", end - start)
+    with model_response_placeholder.container():
+        st.markdown('---')
+        st.markdown('#### Response English:')
+        st.markdown('---')
+    
+    full_response = []
+    # Loop through the chunks streamed back from the API call
+    count = 0
+    curr_len = 50
+    for response in model_llm.generate_text_stream(formated_prompt):
+        print("here", response)
+        answer = response
+        count = count + 1
+        wordstream = str(answer)
+        if wordstream:
+            full_response.append(wordstream)
+            result = "".join(full_response).strip()
 
-        start = time.time()
-        # Response
-        logging.info("start translate response")
-        translated_response = translate_to_thai(response, True)
-        logging.info("end translate response")
-
-    # translated_response = translated_response.replace("<|endoftext|>", "")
-    # st.text_area(label="Model Response", value=translated_response, height=300)
-    model_response_placeholder.text_area(label="คำตอบของ watsonx ai", value=translated_response, height=300)
+            # This streaming_box is a st.empty from the display
+            
+            with model_response_placeholder.container():
+                # if len(result) > curr_len:
+                print(len(result))
+                print("curlen", curr_len)
+                
+                st.markdown('---')
+                st.markdown('#### Response English:')
+                st.markdown(result)
+                # st.markdown(translate_large_text(result,translate_to_thai, True))
+                st.markdown('---')
+                curr_len += 150
+    print("Full", "".join(full_response).strip())
+    logging.info("end generate")
+    with thai_spinner:
+        with st.spinner('Generating to Thai ...'):
+            final_streamed_result = translate_large_text("".join(full_response).strip(),translate_to_thai, True, max_length=250)
+            print(final_streamed_result)
+            with model_response_placeholder_thai.container():
+                st.markdown('---')
+                st.markdown('#### Response Thai:')
+                st.markdown(final_streamed_result + ".✔️")
+                st.markdown('---')
 
     st.write()
+

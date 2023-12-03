@@ -26,7 +26,7 @@ def initialize_db_client(host=milvus_host, port=milvus_port):
     return connections.connect(host=host,port=port)
 
 
-def get_db_results(query_text, model, collection_name="collection", n_results=4):
+def get_db_results_main(query_text, model, collection_name="collection", n_results=4):
     """
     Queries the given collection in the database with the provided query text and returns results.
 
@@ -44,8 +44,52 @@ def get_db_results(query_text, model, collection_name="collection", n_results=4)
     collection = Collection(collection_name)
     collection.load()
     documents = collection.search(data=query_encode, anns_field="embeddings", param={"metric":"IP","offset":0},
-                    output_fields=["new_translated_docs", "page_content", "sources", "pagesno"], limit=4)
+                    output_fields=["text_to_encode", "Section", "Description", "chunk"], limit=4)
     return documents[0]
+
+def get_db_results_terms(query_text, model, collection_name="collection", n_results=4):
+    """
+    Queries the given collection in the database with the provided query text and returns results.
+
+    Parameters:
+    - query_text (str): The text to be queried.
+    - collection_name (str): The name of the collection to query. Default is "law_topics".
+    - n_results (int): Number of results to fetch. Default is 1.
+
+    Returns:
+    - dict: Query results.
+    """
+
+    client = initialize_db_client()
+    query_encode = [list(i) for i in model.encode([query_text])]
+    collection = Collection(collection_name)
+    collection.load()
+    documents = collection.search(data=query_encode, anns_field="embeddings", param={"metric":"IP","offset":0},
+                    output_fields=["text_to_encode", "Term_th", "Meaning_th"], limit=4)
+    return documents[0]
+
+def get_db_results_changes(query_text, model, collection_name="collection", n_results=4):
+    """
+    Queries the given collection in the database with the provided query text and returns results.
+
+    Parameters:
+    - query_text (str): The text to be queried.
+    - collection_name (str): The name of the collection to query. Default is "law_topics".
+    - n_results (int): Number of results to fetch. Default is 1.
+
+    Returns:
+    - dict: Query results.
+    """
+
+    client = initialize_db_client()
+    query_encode = [list(i) for i in model.encode([query_text])]
+    collection = Collection(collection_name)
+    collection.load()
+    documents = collection.search(data=query_encode, anns_field="embeddings", param={"metric":"IP","offset":0},
+                    output_fields=["text_to_encode", "file_name", "Description"], limit=4)
+    return documents[0]
+
+
 
 def get_model(model_name='airesearch/wangchanberta-base-att-spm-uncased', max_seq_length=768, condition=True):
     if condition:
