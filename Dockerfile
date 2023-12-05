@@ -6,6 +6,7 @@ WORKDIR /usr/src/app
 
 # Install system dependencies
 RUN apt-get update --allow-unauthenticated -y \
+    && apt-get install -y gcc libffi-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy only the requirements file first to leverage Docker cache
@@ -33,4 +34,4 @@ RUN mkdir -p /.streamlit \
 # Expose port
 EXPOSE 8080
 
- CMD /bin/bash -c "python backend.py && python -m streamlit run app.py --server.port=8080"
+ CMD /bin/bash -c "python backend_main.py && python backend_changes.py && python backend_terms.py && python -m streamlit run app.py --server.port=8080"
